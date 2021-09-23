@@ -1,0 +1,13 @@
+numpy
+pandas
+seaborn
+tqdm
+nltk
+scikit-learn
+spacy
+sentence-transformers
+tensorflow-hub
+spellchecker
+tensorflow
+pycountry
+contractions
