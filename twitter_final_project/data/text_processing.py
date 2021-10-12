@@ -250,12 +250,13 @@ def _location(text):
             "United States Minor Outlying Islands": "UM",
             "U.S. Virgin Islands": "VI"}
 
-        text_ = nlp_wk(text)
+        # text_ = nlp_wk(text)
+        text_ = nlp(text)
 
         loc = []
 
         for ent in text_.ents:
-            if(ent.label_ == "LOC"):
+            if(ent.label_ == "GPE"):
                 loc.append(ent.text)
 
         if not loc:
@@ -269,12 +270,14 @@ def _location(text):
             location = ""
         elif len(loc) == 1:
             # a single location was found
+            print("LOC:", loc)
             location = loc[0]
+            print("HERE 2")
         elif len(loc) >= 2:
             # if more than 2 locations were found, then find similarity between each possible location to the text itself by using a pre-traind model
             location = _similarity(text, loc)
 
-    return location
+    return location.lower()
 
 
 def text_processing(input_df):
@@ -285,101 +288,96 @@ def text_processing(input_df):
     # [2] Format keyword: fill missing keywords for certain tweets following specific scenarios
     # [3] Format location: fill missing locations for certain tweets following specific scenarios
 
-    # get all available keywords from the the data (unique values) for step [2]
+    # get all available keywords from the the data (unique values) for step [2], but first replace all '%20' with ' '
     for i in range(len(input_df["keyword"])):
+        k = input_df['keyword'].iloc[i]
         try:
-            k = input_df['keyword'].iloc[i]
-            k_ = _format(k)
             if "%20" in k:
-                input_df['keyword'].iloc[i] = k_[:k.index("%")] + ' ' + k_[k.index("%"):]
-            else:
-                input_df['keyword'].iloc[i] = k_
-            print(input_df['keyword'].iloc[i])
+                input_df['keyword'].iloc[i] = k[:k.index("%20")] + ' ' + k[k.index("%20") + len("%20"):]
         except:
-            print(input_df['keyword'].iloc[i])
+            pass
+    train_keywords = input_df['keyword'].unique()
 
-    # def _thread_func(q, result):
-    #     """
-    #     Threaded function for queue processing
-    #     """
-    #     while not q.empty():
-    #         # Fetch new work from the Queue
-    #         work = q.get()
-    #         try:
-    #             # index, keyword, location, tweet, target
-    #             i, k, l, tw, ta = work[0], work[1], work[2], work[3], work[4]
 
-    #             # Step 1 - tweet text formatting
-    #             tw = _format(tw)
+    def _thread_func(q, result):
+        """
+        Threaded function for queue processing
+        """
+        while not q.empty():
+            # Fetch new work from the Queue
+            work = q.get()
+            try:
+                # index, keyword, location, tweet, target
+                i, k, l, tw, ta = work[0], work[1], work[2], work[3], work[4]
 
-    #             # Step 2 - keyword formatting
-    #             if pd.isnull(k):
-    #                 # keyword is empty, so search for a keyword within the tweet itself,
-    #                 # if no keyword is found then fill with NaN
-    #                 keyword = _keyword(tw, train_keywords)
-    #                 k = keyword if keyword else "NaN"
-    #             elif "%20" in k:
-    #                 # if %20 (space) in keyword, use _format() to clean keyword and add replace '%' from original keyword with ' '
-    #                 k_ = _format(k)
-    #                 keyword = k_[:k.index("%")] + ' ' + k_[k.index("%"):]
+                # Step 1 - tweet text formatting
+                tw = _format(tw)
 
-    #             # Step 3 - location formatting
-    #             if pd.isnull(l):
-    #                 # location is empty, so search for a location within the tweet itself,
-    #                 # if no location is found then fill with NaN
-    #                 location = _location(tw)
-    #                 l = location if location else "NaN"
-    #             else:
-    #                 # location is not empty, so first make sure there's no a location within the tweet itself
-    #                 location_tweet, location_legit = _location(tw), _location(l)
-    #                 # scenarios:
-    #                 # - location found within the tweet, so overwrite the value under location with it
-    #                 # - location is not found within the tweet, so make sure the given location not some garbage text
-    #                 # - location is not legit, replace it with NaN
-    #                 l = location_tweet if location_tweet else location_legit if location_legit else "NaN"
+                # Step 2 - keyword formatting
+                if pd.isnull(k):
+                    # keyword is empty, so search for a keyword within the tweet itself,
+                    # if no keyword is found then fill with NaN
+                    keyword = _keyword(tw, train_keywords)
+                    k = keyword if keyword else "NaN"
 
-    #             # Store data back at correct index
-    #             result[i] = (k, l, tw, ta)
-    #         except Exception as e:
-    #             result[i] = {("ERROR!", e, work[0], work[1], work[2], work[3], work[4])}
-    #             pass
+                # Step 3 - location formatting
+                if pd.isnull(l):
+                    # location is empty, so search for a location within the tweet itself,
+                    # if no location is found then fill with NaN
+                    location = _location(tw)
+                    l = location if location else "NaN"
+                else:
+                    # location is not empty, so first make sure there's no a location within the tweet itself
+                    location_tweet = _location(tw)
+                    location_legit = _location(l)
+                    # scenarios:
+                    # - location found within the tweet, so overwrite the value under location with it
+                    # - location is not found within the tweet, so make sure the given location not some garbage text
+                    # - location is not legit, replace it with NaN
+                    l = location_tweet if location_tweet else location_legit if location_legit else "NaN"
 
-    #         # Signal to the queue that the task has been processed
-    #         q.task_done()
+                # Store data back at correct index
+                result[i] = (k, l, tw, ta)
+            except Exception as e:
+                result[i] = {("ERROR!", e, work[0], work[1], work[2], work[3], work[4])}
+                pass
 
-    #     return True
+            # Signal to the queue that the task has been processed
+            q.task_done()
 
-    # all_raw_tweets = []
+        return True
 
-    # for i in range(len(input_df)):
-    #     all_raw_tweets.append(input_df.iloc[i])
+    all_raw_tweets = []
 
-    # # Set up a queue to hold all the tweets
-    # q = queue.Queue(maxsize=0)
+    for i in range(len(input_df)):
+        all_raw_tweets.append(input_df.iloc[i])
 
-    # # Use many threads (50 max, or one for each file)
-    # num_threads = min(50, len(all_raw_tweets))
+    # Set up a queue to hold all the tweets
+    q = queue.Queue(maxsize=0)
 
-    # # Populating Queue with tasks
-    # tweets = [{} for x in all_raw_tweets]
+    # Use many threads (50 max, or one for each file)
+    num_threads = min(50, len(all_raw_tweets))
 
-    # # Load up the queue with the raw text to get the format vesrion of each one
-    # for i in range(len(all_raw_tweets)):
-    #     # extract keyword, location, tweet, and target, and put as a queue item with id
-    #     k, l, tw, ta = all_raw_tweets[i][0], all_raw_tweets[i][1], all_raw_tweets[i][2], all_raw_tweets[i][3]
-    #     q.put((i, k, l, tw, ta))
+    # Populating Queue with tasks
+    tweets = [{} for x in all_raw_tweets]
 
-    # # Starting worker threads on queue processing
-    # for i in range(num_threads):
-    #     worker = Thread(target=_thread_func, args=(q, tweets))
-    #     # Setting threads as "daemon" allows main program to exit eventually even if these dont finish correctly.
-    #     worker.setDaemon(True)
-    #     # Start worker thread
-    #     worker.start()
+    # Load up the queue with the raw text to get the format vesrion of each one
+    for i in range(len(all_raw_tweets)):
+        # extract keyword, location, tweet, and target, and put as a queue item with id
+        k, l, tw, ta = all_raw_tweets[i][0], all_raw_tweets[i][1], all_raw_tweets[i][2], all_raw_tweets[i][3]
+        q.put((i, k, l, tw, ta))
 
-    # # Wait until the queue has been processed
-    # q.join()
+    # Starting worker threads on queue processing
+    for i in range(num_threads):
+        worker = Thread(target=_thread_func, args=(q, tweets))
+        # Setting threads as "daemon" allows main program to exit eventually even if these dont finish correctly.
+        worker.setDaemon(True)
+        # Start worker thread
+        worker.start()
 
-    # df = pd.DataFrame(tweets, columns =['keyword', 'location', 'tweet', 'target'])
+    # Wait until the queue has been processed
+    q.join()
 
-    # return df
+    df = pd.DataFrame(tweets, columns =['keyword', 'location', 'tweet', 'target'])
+
+    return df
