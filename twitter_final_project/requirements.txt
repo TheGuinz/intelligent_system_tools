@@ -11,3 +11,5 @@ spellchecker
 tensorflow
 pycountry
 contractions
+py-area-code-nanp
+geopy
