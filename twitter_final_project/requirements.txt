@@ -13,3 +13,4 @@ pycountry
 contractions
 py-area-code-nanp
 geopy
+pyspellchecker
