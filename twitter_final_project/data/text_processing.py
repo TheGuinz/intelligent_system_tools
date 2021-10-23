@@ -17,8 +17,7 @@ import contractions
 import spacy
 os.system('python -m spacy download en') # used for keywords filling
 nlp = spacy.load("en_core_web_sm")
-# os.system('python -m spacy download xx_ent_wiki_sm') # used for locations filling
-# nlp_wk = spacy.load("xx_ent_wiki_sm")
+os.system('python -m spacy download xx_ent_wiki_sm') # used for locations filling
 # import spellchecker
 from spellchecker import SpellChecker
 # import queue and threading
@@ -250,7 +249,6 @@ def _location(text):
             "United States Minor Outlying Islands": "UM",
             "U.S. Virgin Islands": "VI"}
 
-        # text_ = nlp_wk(text)
         text_ = nlp(text)
 
         loc = []
@@ -282,7 +280,7 @@ def text_processing(input_df):
     # Preprocess data:
 
     # Steps:
-    # [1] Format tweet: correct spelling, remove emojis, and remove stop_words
+    # [1] Format tweet: correct spelling, remove emojis, remove urls, and remove stop_words
     # [2] Format keyword: fill missing keywords for certain tweets following specific scenarios
     # [3] Format location: fill missing locations for certain tweets following specific scenarios
 
