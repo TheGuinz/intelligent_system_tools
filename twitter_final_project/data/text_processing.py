@@ -7,8 +7,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 pd.options.mode.chained_assignment = None # no warnings
-# import nltk
-import nltk
 # import sklearn
 from sklearn.metrics.pairwise import cosine_similarity # to calculate the similarities between keyword candidates and text
 # import contractions
@@ -349,7 +347,7 @@ def text_processing(input_df):
     # Set up a queue to hold all the tweets
     q = queue.Queue(maxsize=0)
 
-    # Use many threads (50 max, or one for each file)
+    # Use many threads (20 max, or one for each tweet)
     num_threads = min(20, len(all_raw_tweets))
 
     # Populating Queue with tasks
